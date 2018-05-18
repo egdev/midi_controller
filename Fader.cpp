@@ -29,7 +29,21 @@ uint16_t Fader::getMaxPosition() {
   return _maxPosition;
 }
 
+uint8_t Fader::getEnablePin() {
+  return _enablePin;
+}
+
+uint8_t Fader::getMotorPin1() {
+  return _motorPin1;
+}
+
+uint8_t Fader::getMotorPin2() {
+  return _motorPin2;
+}
+
 void Fader::calibrate() {
+  //analogWrite(getEnablePin, 255);
+  
   _DCMotor->setSpeed(255);
   _DCMotor->forward();
   delay(250);
@@ -46,7 +60,7 @@ void Fader::calibrate() {
 
 // map fader position (0-1023) to cc midi value (0-127)
 unsigned char Fader::faderPositionToMidiPosition(uint16_t faderPosition) {
-  return (uint16_t) map(faderPosition, _minPosition, _maxPosition, 0, 127);  
+  return (unsigned char) map(faderPosition, _minPosition, _maxPosition, 0, 127);  
 }
 
 // map midi value (0-127) to fader position (_minPosition, _maxPosition)
@@ -66,13 +80,17 @@ bool Fader::isMaster() {
   return _master;
 }
 
+uint16_t Fader::getSignalPin() {
+  return _signalPin;
+}
+
 void Fader::checkTouched() {
   _lastTouched = _touched;
-  //Serial.println(_cs->capacitiveSensor(30));
-  long cs = _cs->capacitiveSensor(30);
-  if (!_touched && cs >= 400)    
+  //long cs = _cs->capacitiveSensor(30);
+  long cs = _cs->capacitiveSensor(5);
+  if (!_touched && cs >= 200)    
     _touched = true;
-  else if (_touched && cs < 100)
+  else if (_touched && cs < 50)
     _touched = false;
 
   //if (_lastTouched && !_touched) { // FALLING
@@ -92,8 +110,11 @@ ResponsiveAnalogRead* Fader::getAnalog() {
 uint16_t Fader::updateCurrentPosition() {
   _analog->update();
   _currentPosition = constrain(_analog->getValue(), _minPosition, _maxPosition);
-  //_currentPosition = constrain(analogRead(_signalPin), _minPosition, _maxPosition);
-
+  //_currentPosition = constrain(analogRead(getSignalPin()), _minPosition, _maxPosition);
+  //_currentPosition = analogRead(getSignalPin());
+  /*_currentPosition = _analog->getValue();
+  if (_currentPosition > _maxPosition) _currentPosition = _maxPosition;
+  else if (_currentPosition < _minPosition) _currentPosition = _minPosition;*/
   return _currentPosition;
 }
 

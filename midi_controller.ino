@@ -63,23 +63,23 @@ Track tracks[NUM_CHANNELS] = { /*{ 1, 0, 31}, // master track
                                { 1, 0, 15},
                                { 1, 0, 16}*/
                                /*,*/
-                               { 17, 0, 95},
-                               { 1, 0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 2, 0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 3, 0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 4, 0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 5, 0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 6, 0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 7, 0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 8, 0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 9, 0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 10, 0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 11, 0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 12, 0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 13, 0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 14, 0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 15, 0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 16, 0, midi::MidiControlChangeNumber::ChannelVolume} }; // save all channels positions
+                               { 17,  0, 95},
+                               { 1,   0, midi::MidiControlChangeNumber::ChannelVolume},
+                               { 2,   0, midi::MidiControlChangeNumber::ChannelVolume},
+                               { 3,   0, midi::MidiControlChangeNumber::ChannelVolume},
+                               { 4,   0, midi::MidiControlChangeNumber::ChannelVolume},
+                               { 5,   0, midi::MidiControlChangeNumber::ChannelVolume},
+                               { 6,   0, midi::MidiControlChangeNumber::ChannelVolume},
+                               { 7,   0, midi::MidiControlChangeNumber::ChannelVolume},
+                               { 8,   0, midi::MidiControlChangeNumber::ChannelVolume},
+                               { 9,   0, midi::MidiControlChangeNumber::ChannelVolume},
+                               { 10,  0, midi::MidiControlChangeNumber::ChannelVolume},
+                               { 11,  0, midi::MidiControlChangeNumber::ChannelVolume},
+                               { 12,  0, midi::MidiControlChangeNumber::ChannelVolume},
+                               { 13,  0, midi::MidiControlChangeNumber::ChannelVolume},
+                               { 14,  0, midi::MidiControlChangeNumber::ChannelVolume},
+                               { 15,  0, midi::MidiControlChangeNumber::ChannelVolume},
+                               { 16,  0, midi::MidiControlChangeNumber::ChannelVolume} }; // save all channels positions
 
 int16_t getChannelIndex(byte channel, byte number) {
   int16_t index = -1;
@@ -119,47 +119,66 @@ void calibrateFaders() {
   for (i=0; i<NUM_FADERS; i++) 
   {
     FADERS[i].calibrate();  
-    digitalWrite(ledBank1Pin, (i % 3 == 0) ? HIGH : LOW);
+    /*digitalWrite(ledBank1Pin, (i % 3 == 0) ? HIGH : LOW);
     digitalWrite(ledBank2Pin, (i % 3 == 1) ? HIGH : LOW);
-    digitalWrite(ledBank3Pin, (i % 3 == 2) ? HIGH : LOW);
+    digitalWrite(ledBank3Pin, (i % 3 == 2) ? HIGH : LOW);*/
+    bitWrite(PORTJ, 0, (i % 3) == 0);
+    bitWrite(PORTH, 1, (i % 3) == 1);
+    bitWrite(PORTH, 0, (i % 4) == 2);
   }
-  digitalWrite(ledBank1Pin, LOW);
+  /*digitalWrite(ledBank1Pin, LOW);
   digitalWrite(ledBank2Pin, LOW);
-  digitalWrite(ledBank3Pin, LOW);
+  digitalWrite(ledBank3Pin, LOW);*/
+  bitClear(PORTJ, 0);
+  bitClear(PORTH, 1);
+  bitClear(PORTH, 0);
 }
+
+long t;
 
 void manageFaders() {
   int i;
   for (i=0; i<NUM_FADERS; i++) {
-    //if (!i) FADERS[i].checkTouched();
+    FADERS[i].checkTouched();
     if (FADERS[i].needMidiUpdate()) { // we need to update corresponding fader channel position on remote
       uint16_t faderChannelIndex;
       if (i == 0)
         faderChannelIndex = 0;
       else
         faderChannelIndex = ((currentBank * 8) + i);
-      /*Serial.print("channelIndex = ");
-      Serial.println(faderChannelIndex);
-      Serial.print("i = ");
-      Serial.println(i);*/
       
       if (faderChannelIndex < NUM_CHANNELS) {
         uint16_t pos = FADERS[i].updateCurrentPosition();
         FADERS[i].setTargetPosition(pos);
         tracks[faderChannelIndex].position = pos; // save channel position        
-        //MIDI.sendControlChange(tracks[faderChannelIndex].number, FADERS[i].faderPositionToMidiPosition(pos), tracks[faderChannelIndex].channel); 
-        /*Serial.print("sendControlChange(");
+        MIDI.sendControlChange(tracks[faderChannelIndex].number, FADERS[i].faderPositionToMidiPosition(pos), tracks[faderChannelIndex].channel); 
+        /*Serial.print("MIDI.sendControlChange(");
         Serial.print(tracks[faderChannelIndex].number);
         Serial.print(", ");
-        Serial.print(FADERS[i].faderPositionToMidiPosition(pos));
+        //Serial.print(FADERS[i].faderPositionToMidiPosition(pos));
+        //Serial.print(pos);
+        Serial.print(map(pos, FADERS[i].getMinPosition(), FADERS[i].getMaxPosition(), 0, 127));
         Serial.print(", ");
         Serial.print(tracks[faderChannelIndex].channel);
-        Serial.println(")"); */
+        Serial.println(")");*/
+        //Serial.println("move fader ");
+        /*if (!i)
+          Serial.print("MASTER");
+         else
+          Serial.print(i);
+         Serial.print(" to position ");
+         Serial.println(FADERS[i].faderPositionToMidiPosition(pos));*/
       }
       FADERS[i].setMidiUpdate(false);
     }
+    //analogRead(A8);
+    //Serial.print("time for read = ");
     FADERS[i].updateCurrentPosition();
     FADERS[i].move();
+    /*Serial.print(analogRead(FADERS[i].getSignalPin()));
+    Serial.print("\t");*/
+    //if (i == NUM_FADERS-1)
+    //  Serial.println("");
   }
 }
 
@@ -178,31 +197,41 @@ void changeBank() {
 }
 
 void setup() {
-  pinMode(ledBank1Pin, OUTPUT);
-  pinMode(ledBank2Pin, OUTPUT);
-  pinMode(ledBank3Pin, OUTPUT);
-
+  /*pinMode(ledBank1Pin, OUTPUT); //15
+  pinMode(ledBank2Pin, OUTPUT); //16
+  pinMode(ledBank3Pin, OUTPUT); //17*/
+  bitSet(DDRJ, 0);
+  bitSet(DDRH, 1);
+  bitSet(DDRH, 0);
+  
   changeBankButton.registerCallbacks(NULL, changeBank, NULL);
   changeBankButton.setup(changeBankPin, BUTTON_DEBOUNCE_DELAY, InputDebounce::PIM_INT_PULL_UP_RES);
   TCCR3B = TCCR3B & 0b11111000 | 0x01;
-  /*MIDI.setHandleControlChange(handleControlChange);
+  MIDI.setHandleControlChange(handleControlChange);
   MIDI.begin(MIDI_CHANNEL_OMNI);
-  MIDI.turnThruOff();*/
+  MIDI.turnThruOff();
+  //Serial.begin(9600);
   
   //calibrateFaders();
-  Serial.begin(9600);
 }
 
+/*long counter = 0;
+long lastMicros = 0;
+long currentMicros;
+double totalMicros = 0;*/
+
 void loop() {  
-  long t;
-  t = micros();
+  // currentMicros = micros();
   changeBankButton.process(millis());
-  //MIDI.read();
+  MIDI.read();
   manageFaders();  
 
-  digitalWrite(ledBank1Pin, (currentBank == 0) ? HIGH : LOW);
+ bitWrite(PORTJ, 0, currentBank == 0);
+ bitWrite(PORTH, 1, currentBank == 1);
+ bitWrite(PORTH, 0, currentBank == 2);
+ /* digitalWrite(ledBank1Pin, (currentBank == 0) ? HIGH : LOW);
   digitalWrite(ledBank2Pin, (currentBank == 1) ? HIGH : LOW);
-  digitalWrite(ledBank3Pin, (currentBank == 2) ? HIGH : LOW);
+  digitalWrite(ledBank3Pin, (currentBank == 2) ? HIGH : LOW);*/
 
   /*int i;
   for (i=0; i<NUM_FADERS; i++) 
@@ -218,38 +247,53 @@ void loop() {
   digitalWrite(ledBank5Pin, (currentBank == 5) ? HIGH : LOW);*/
   
   /*Serial.print("Channel 1  = ");
-  Serial.println(analogRead(A1));
+  Serial.println(analogRead(A8));
 
   Serial.print("Channel 2  = ");
-  Serial.println(analogRead(A2));
-
-  Serial.print("Channel 3  = ");
-  Serial.println(analogRead(A3));
-
-  Serial.print("Channel 4  = ");
-  Serial.println(analogRead(A4));
-
-  Serial.print("Channel 5  = ");
-  Serial.println(analogRead(A5));
-
-  Serial.print("Channel 6  = ");
-  Serial.println(analogRead(A6));
-
-  Serial.print("Channel 7  = ");
   Serial.println(analogRead(A7));
 
+  Serial.print("Channel 3  = ");
+  Serial.println(analogRead(A6));
+
+  Serial.print("Channel 4  = ");
+  Serial.println(analogRead(A5));
+
+  Serial.print("Channel 5  = ");
+  Serial.println(analogRead(A4));
+
+  Serial.print("Channel 6  = ");
+  Serial.println(analogRead(A3));
+
+  Serial.print("Channel 7  = ");
+  Serial.println(analogRead(A2));
+
   Serial.print("Channel 8  = ");
-  Serial.println(analogRead(A8));
+  Serial.println(analogRead(A1));
 
   Serial.print("Master  = ");
   Serial.println(analogRead(A0));*/
 
   //Serial.println(FADERS[8]._cs->capacitiveSensor(30));
 
-  //Serial.println(FADERS[1]._cs->capacitiveSensor(30));
   //Serial.println(FADERS[1].updateCurrentPosition());
-  //delay(2000);
+  //delay(1000);
   //Serial.print("loop = ");
-  Serial.println(micros()-t);
+    //Serial.println(FADERS[1]._cs->capacitiveSensor(5));
+/*  if ((currentMicros - lastMicros) >= 1000000)
+  {
+    long t = micros();
+    Serial.println(FADERS[1]._cs->capacitiveSensor(5));
+    //Serial.println(micros() - t);
+    //Serial.println(totalMicros / counter);
+    //Serial.println(counter);
+    counter = 0;
+    totalMicros = 0;
+    lastMicros = currentMicros;
+  } else {
+    totalMicros += (micros() - currentMicros);
+    counter++;
+  }*/
+  //Serial.println(micros()-t);
+  
 }
 

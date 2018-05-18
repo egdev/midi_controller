@@ -13,6 +13,10 @@ class Fader {
     Fader(uint16_t signalPin, uint8_t enablePin, uint8_t motorPin1, uint8_t motorPin2, uint8_t touchPin, uint8_t sendTouchPin, bool master = 0);
     unsigned char faderPositionToMidiPosition(uint16_t faderPosition);
     uint16_t midiPositionToFaderPosition(uint16_t midiPosition);
+    uint16_t getSignalPin();
+    uint8_t getEnablePin();
+    uint8_t getMotorPin1();
+    uint8_t getMotorPin2();
     bool isMoving();
     bool isTouched();
     bool isMaster();
