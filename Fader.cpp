@@ -99,7 +99,7 @@ void Fader::checkTouched() {
   _lastTouched = _touched;
   //long cs = _cs->capacitiveSensor(30);
   long cs = _cs->capacitiveSensor(5);
-  if (!_touched && cs >= 200)    
+  if (!_touched && cs >= 150)    
     _touched = true;
   else if (_touched && cs < 50)
     _touched = false;

@@ -171,7 +171,10 @@ void setup() {
   
   changeBankButton.registerCallbacks(NULL, changeBank, NULL);
   changeBankButton.setup(changeBankPin, BUTTON_DEBOUNCE_DELAY, InputDebounce::PIM_INT_PULL_UP_RES);
-  //TCCR3B = TCCR3B & 0b11111000 | 0x01;
+  TCCR1B = (TCCR1B & 0b11111000) | 0x01;
+  TCCR2B = (TCCR2B & 0b11111000) | 0x01;
+  TCCR3B = (TCCR3B & 0b11111000) | 0x01;
+  TCCR4B = (TCCR4B & 0b11111000) | 0x01;
   MIDI.setHandleControlChange(handleControlChange);
   MIDI.begin(MIDI_CHANNEL_OMNI);
   MIDI.turnThruOff();
