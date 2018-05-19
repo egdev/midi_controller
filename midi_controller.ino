@@ -16,7 +16,7 @@ volatile uint8_t currentBank = 0;
 Fader FADERS[NUM_FADERS] = { Fader(0,  10, 19, 18, 53, 52, true), // master fader
                              Fader(8,  2,  35, 34, 37, 36, false),                             
                              Fader(7,  3,  33, 32, 39, 38, false),
-                             Fader(6,  4,  31, 30, 41, 40, false),
+                             Fader(6,  11,  31, 30, 41, 40, false),
                              Fader(5,  5,  29, 28, 43, 42, false),
                              Fader(4,  6,  27, 26, 45, 44, false),
                              Fader(3,  7,  25, 24, 47, 46, false),
