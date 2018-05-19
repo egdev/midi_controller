@@ -25,8 +25,6 @@ class Fader {
     uint16_t updateCurrentPosition();
     void setMidiUpdate(bool midiUpdate);
     void calibrate();
-    L298N* getDCMotor();
-    ResponsiveAnalogRead* getAnalog();
     uint16_t getCurrentPosition();
     void move();
     void setTargetPosition(uint16_t position);
@@ -53,7 +51,9 @@ class Fader {
     bool _master;                 // true if master fader
     bool _lastTouched;
     bool _midiUpdate;
-    L298N* _DCMotor;
-    ResponsiveAnalogRead* _analog;
+    uint8_t _motorPin1Port;
+    uint8_t _motorPin1Bit;
+    uint8_t _motorPin2Port;
+    uint8_t _motorPin2Bit;
 };
 

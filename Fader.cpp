@@ -2,7 +2,7 @@
 
 #include "Fader.h"
 
-Fader::Fader(uint16_t signalPin, uint8_t enablePin, uint8_t motorPin1, uint8_t motorPin2, uint8_t receiveTouchPin, uint8_t sendTouchPin, bool master) {
+Fader::Fader(uint16_t signalPin, uint8_t enablePin, uint8_t motorPin1, uint8_t motorPin2, uint8_t receiveTouchPin, uint8_t sendTouchPin, bool master) {//, uint16_t enablePinPort, uint8_t enablePinBit, uint16_t motorPin1Port, uint8_t motorPin1Bit, uint16_t motorPin2Port, uint8_t motorPin2Bit) {
    _signalPin = signalPin;
    _master = master;
    _currentPosition = 0;
@@ -13,12 +13,16 @@ Fader::Fader(uint16_t signalPin, uint8_t enablePin, uint8_t motorPin1, uint8_t m
    _sendTouchPin = sendTouchPin;
    _cs      = new CapacitiveSensor(_sendTouchPin, _receiveTouchPin); 
    _cs->set_CS_AutocaL_Millis(0xFFFFFFFF);
-   _DCMotor = new L298N(_enablePin, _motorPin1, _motorPin2);
-   _analog  = new ResponsiveAnalogRead(_signalPin, false);
-}
+//   _analog  = new ResponsiveAnalogRead(_signalPin, false);
 
-L298N* Fader::getDCMotor() {
-  return _DCMotor;  
+    pinMode(_enablePin, OUTPUT);
+    pinMode(_motorPin1, OUTPUT);
+    pinMode(_motorPin2, OUTPUT);
+    analogWrite(_enablePin, 255);
+   _motorPin1Port = digitalPinToPort(_motorPin1);
+   _motorPin1Bit  = digitalPinToBitMask(_motorPin1);
+   _motorPin2Port = digitalPinToPort(_motorPin2);    
+   _motorPin2Bit  = digitalPinToBitMask(_motorPin2);
 }
 
 uint16_t Fader::getMinPosition() {
@@ -42,21 +46,28 @@ uint8_t Fader::getMotorPin2() {
 }
 
 void Fader::calibrate() {
-  //analogWrite(getEnablePin, 255);
+  analogWrite(_enablePin, 255);
   
-  _DCMotor->setSpeed(255);
-  _DCMotor->forward();
-  delay(250);
-  _DCMotor->stop();
-  _analog->update();
-  _maxPosition = _analog->getValue();
-  //delay(100);
-  _DCMotor->backward();
-  delay(250);
-  _DCMotor->stop();
-  _analog->update();
-  _minPosition = _analog->getValue();
+  *portOutputRegister(_motorPin1Port) |= _motorPin1Bit;
+  *portOutputRegister(_motorPin2Port) &= ~(_motorPin2Bit);
+  delay(200);
+
+  *portOutputRegister(_motorPin1Port) &= ~(_motorPin1Bit);
+  *portOutputRegister(_motorPin2Port) &= ~(_motorPin2Bit);
+
+  _maxPosition = analogRead(_signalPin);
+  
+  *portOutputRegister(_motorPin1Port) &= ~(_motorPin1Bit);
+  *portOutputRegister(_motorPin2Port) |= _motorPin2Bit;
+  delay(200);
+
+
+  *portOutputRegister(_motorPin1Port) &= ~(_motorPin1Bit);
+  *portOutputRegister(_motorPin2Port) &= ~(_motorPin2Bit);
+
+  _minPosition = analogRead(_signalPin);
 }
+
 
 // map fader position (0-1023) to cc midi value (0-127)
 unsigned char Fader::faderPositionToMidiPosition(uint16_t faderPosition) {
@@ -103,16 +114,8 @@ bool Fader::needMidiUpdate() {
   return _midiUpdate;  
 }
 
-ResponsiveAnalogRead* Fader::getAnalog() {
-  return _analog;  
-}
-
 uint16_t Fader::updateCurrentPosition() {
-  //_analog->update();
-  //_currentPosition = constrain(_analog->getValue(), _minPosition, _maxPosition);
-  //_currentPosition = constrain(analogRead(getSignalPin()), _minPosition, _maxPosition);
-  _currentPosition = analogRead(getSignalPin());
-  /*_currentPosition = _analog->getValue();*/
+  _currentPosition = analogRead(_signalPin);
   if (_currentPosition > _maxPosition) _currentPosition = _maxPosition;
   else if (_currentPosition < _minPosition) _currentPosition = _minPosition;
   return _currentPosition;
@@ -138,7 +141,6 @@ void Fader::move() {
   int16_t delta = _currentPosition - _targetPosition; // delta between read value and wanted value
   uint16_t abs_delta = abs(delta);
   if (!_touched && abs_delta > 15) {  // delta greater than deadband we can move and fader not touched
-  //if (!_touched && abs_delta > 30) {  // delta greater than deadband we can move and fader not touched
     if (!_moving) {                   // fader was not moving we set speed depending on delta
       if (abs_delta < 100)
         _motorSpeed = 200;
@@ -151,39 +153,20 @@ void Fader::move() {
       else 
         _motorSpeed = map(abs_delta, 100, _maxPosition, 200, 255);
     }      
-    _DCMotor->setSpeed(_motorSpeed);
+    analogWrite(_enablePin, _motorSpeed);
     if (delta > 0) {
-      _DCMotor->backward();
+      *portOutputRegister(_motorPin1Port) &= ~(_motorPin1Bit);
+      *portOutputRegister(_motorPin2Port) |= _motorPin2Bit;
     } else {
-      _DCMotor->forward();
+      *portOutputRegister(_motorPin1Port) |= _motorPin1Bit;
+      *portOutputRegister(_motorPin2Port) &= ~(_motorPin2Bit);
     }
   } else {
     _motorSpeed = 255;
-    _DCMotor->stop();
+    *portOutputRegister(_motorPin1Port) &= ~(_motorPin1Bit);
+    *portOutputRegister(_motorPin2Port) &= ~(_motorPin2Bit);
     _targetPosition = _currentPosition;
     _moving = false;
   }  
 }
-
-/*void Fader::move() {
-  int16_t delta = _currentPosition - _targetPosition; // delta between read value and wanted value
-  uint16_t abs_delta = abs(delta);
-  if (!_touched && abs_delta > 50) {  // delta greater than deadband we can move and fader not touched
-    if (!_moving) {                   // fader was not moving we set speed depending on delta
-      _motorSpeed = 255;
-      _moving = true;
-    }     
-    _DCMotor->setSpeed(_motorSpeed);
-    if (delta > 0) {
-      _DCMotor->backward();
-    } else {
-      _DCMotor->forward();
-    }
-  } else {
-    _motorSpeed = 255;
-    _DCMotor->stop();
-    _targetPosition = _currentPosition;
-    _moving = false;
-  }  
-}*/
 

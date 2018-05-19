@@ -1,35 +1,18 @@
 #include <MIDI.h>
 #include "InputDebounce.h"
 #include "Fader.h"
-#include <pt.h>
 
 #define BUTTON_DEBOUNCE_DELAY   20
 static const int changeBankPin = 14;
 static InputDebounce changeBankButton;
-
-static const int ledBank1Pin = 15;
-static const int ledBank2Pin = 16;
-static const int ledBank3Pin = 17;
 
 const uint16_t MAX_BANKS = 2;//(NUM_CHANNELS / (NUM_FADERS - 1));
 
 MIDI_CREATE_DEFAULT_INSTANCE();
 volatile uint8_t currentBank = 0;
 
-static struct pt pt1, pt2;
-
 // Fader(signalPin, enablePin, motorPin1, motorPin2, receiveTouchPin, sendTouchPin, master)
-/*Fader FADERS[NUM_FADERS] = { Fader(0,  10, 19, 18, 53, 52, true), // master fader
-                             Fader(8,  2,  35, 34, 51, 50, false),
-                             Fader(7,  3,  33, 32, 49, 48, false),
-                             Fader(6,  4,  31, 30, 47, 46, false),
-                             Fader(5,  5,  29, 28, 45, 44, false),
-                             Fader(4,  6,  27, 26, 43, 42, false),
-                             Fader(3,  7,  25, 24, 41, 40, false),
-                             Fader(2,  8,  23, 22, 39, 38, false),
-                             Fader(1,  9,  21, 20, 37, 36, false)                             
-                            };*/
-
+// GOOD ONES
 Fader FADERS[NUM_FADERS] = { Fader(0,  10, 19, 18, 53, 52, true), // master fader
                              Fader(8,  2,  35, 34, 37, 36, false),                             
                              Fader(7,  3,  33, 32, 39, 38, false),
@@ -40,6 +23,17 @@ Fader FADERS[NUM_FADERS] = { Fader(0,  10, 19, 18, 53, 52, true), // master fade
                              Fader(2,  8,  23, 22, 49, 48, false),
                              Fader(1,  9,  21, 20, 51, 50, false)
                             };
+
+/*Fader FADERS[NUM_FADERS] = { Fader(0,  10, 19, 18, 53, 52, true,  PORTB, 4, PORTD, 2, PORTD, 3), // master fader
+                             Fader(8,  2,  35, 34, 37, 36, false, PORTE, 4, PORTC, 2, PORTC, 3),                             
+                             Fader(7,  3,  33, 32, 39, 38, false, PORTE, 5, PORTC, 4, PORTC, 5),
+                             Fader(6,  4,  31, 30, 41, 40, false, PORTG, 5, PORTC, 6, PORTC, 7),
+                             Fader(5,  5,  29, 28, 43, 42, false, PORTE, 3, PORTA, 7, PORTA, 6),
+                             Fader(4,  6,  27, 26, 45, 44, false, PORTH, 3, PORTA, 5, PORTA, 4),
+                             Fader(3,  7,  25, 24, 47, 46, false, PORTH, 4, PORTA, 3, PORTA, 2),
+                             Fader(2,  8,  23, 22, 49, 48, false, PORTH, 5, PORTA, 1, PORTA, 0),
+                             Fader(1,  9,  21, 20, 51, 50, false, PORTH, 6, PORTD, 0, PORTD, 1)
+                            };*/
 
 struct Track {
   midi::Channel channel;
@@ -121,38 +115,15 @@ void calibrateFaders() {
   int i;
   for (i=0; i<NUM_FADERS; i++) 
   {
-    FADERS[i].calibrate();  
+    FADERS[i].calibrate();
     bitWrite(PORTJ, 0, (i % 3) == 0);
     bitWrite(PORTH, 1, (i % 3) == 1);
     bitWrite(PORTH, 0, (i % 4) == 2);
+    //break;
   }
   bitClear(PORTJ, 0);
   bitClear(PORTH, 1);
   bitClear(PORTH, 0);
-}
-
-void moveFaders() {
-  int i;
-  for (i=0; i<NUM_FADERS; i++) {
-    /*FADERS[i].checkTouched();
-    if (FADERS[i].needMidiUpdate()) { // we need to update corresponding fader channel position on remote
-      uint16_t faderChannelIndex;
-      if (i == 0)
-        faderChannelIndex = 0;
-      else
-        faderChannelIndex = ((currentBank * 8) + i);
-      
-      if (faderChannelIndex < NUM_CHANNELS) {
-        uint16_t pos = FADERS[i].updateCurrentPosition();
-        FADERS[i].setTargetPosition(pos);
-        tracks[faderChannelIndex].position = pos; // save channel position        
-        MIDI.sendControlChange(tracks[faderChannelIndex].number, FADERS[i].faderPositionToMidiPosition(pos), tracks[faderChannelIndex].channel); 
-      }
-      FADERS[i].setMidiUpdate(false);
-    }*/
-    FADERS[i].updateCurrentPosition();
-    FADERS[i].move();
-  }
 }
 
 void manageFaders() {
@@ -170,7 +141,7 @@ void manageFaders() {
         uint16_t pos = FADERS[i].updateCurrentPosition();
         FADERS[i].setTargetPosition(pos);
         tracks[faderChannelIndex].position = pos; // save channel position        
-        //MIDI.sendControlChange(tracks[faderChannelIndex].number, FADERS[i].faderPositionToMidiPosition(pos), tracks[faderChannelIndex].channel); 
+        MIDI.sendControlChange(tracks[faderChannelIndex].number, FADERS[i].faderPositionToMidiPosition(pos), tracks[faderChannelIndex].channel); 
       }
       FADERS[i].setMidiUpdate(false);
     } 
@@ -188,7 +159,7 @@ void changeBank() {
   // move fader to channels positions (except master)
   int i;
   for (i=1; i<NUM_FADERS; i++) {
-    uint16_t faderChannelIndex = ((currentBank * 8) + i); //((currentBank-1)*(NUM_FADERS - 1)) + i;
+    uint16_t faderChannelIndex = ((currentBank * 8) + i);
     FADERS[i].setTargetPosition(tracks[faderChannelIndex].position);
   }
 }
@@ -200,63 +171,20 @@ void setup() {
   
   changeBankButton.registerCallbacks(NULL, changeBank, NULL);
   changeBankButton.setup(changeBankPin, BUTTON_DEBOUNCE_DELAY, InputDebounce::PIM_INT_PULL_UP_RES);
-  TCCR3B = TCCR3B & 0b11111000 | 0x01;
-  /*MIDI.setHandleControlChange(handleControlChange);
+  //TCCR3B = TCCR3B & 0b11111000 | 0x01;
+  MIDI.setHandleControlChange(handleControlChange);
   MIDI.begin(MIDI_CHANNEL_OMNI);
-  MIDI.turnThruOff();*/
-  Serial.begin(9600);
-  //calibrateFaders();
+  MIDI.turnThruOff();
+  calibrateFaders();
 }
-
-static int protothread1(struct pt *pt, int interval) {
-  static unsigned long timestamp = 0;
-  PT_BEGIN(pt);
-  while(1) { // never stop 
-    /* each time the function is called the second boolean
-    *  argument "millis() - timestamp > interval" is re-evaluated
-    *  and if false the function exits after that. */
-    PT_WAIT_UNTIL(pt, millis() - timestamp > interval );
-    timestamp = millis(); // take a new timestamp
-    manageFaders();
-  }
-  PT_END(pt);
-}
-/* exactly the same as the protothread1 function */
-static int protothread2(struct pt *pt, int interval) {
-  static unsigned long timestamp = 0;
-  PT_BEGIN(pt);
-  while(1) {
-    PT_WAIT_UNTIL(pt, millis() - timestamp > interval );
-    timestamp = millis();
-    moveFaders();
-  }
-  PT_END(pt);
-}
-
-long currentMicros;
-long counter;
-long lastMicros;
 
 void loop() {  
-  currentMicros = micros();
   changeBankButton.process(millis());
-  //MIDI.read();
-  //manageFaders();  
-//  moveFaders();
+  MIDI.read();
+  manageFaders();  
 
-  //protothread1(&pt1, 1); // schedule the two protothreads
-  //protothread2(&pt2, 1); // by calling them infinitely
-  
  bitWrite(PORTJ, 0, currentBank == 0);
  bitWrite(PORTH, 1, currentBank == 1);
  bitWrite(PORTH, 0, currentBank == 2);
-
- if (currentMicros - lastMicros >= 1000000) {
-  Serial.println(counter);
-  counter = 0;
-  lastMicros = currentMicros;
- } else {
-    counter++;
- }
 }
 
