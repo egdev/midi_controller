@@ -108,13 +108,13 @@ ResponsiveAnalogRead* Fader::getAnalog() {
 }
 
 uint16_t Fader::updateCurrentPosition() {
-  _analog->update();
-  _currentPosition = constrain(_analog->getValue(), _minPosition, _maxPosition);
+  //_analog->update();
+  //_currentPosition = constrain(_analog->getValue(), _minPosition, _maxPosition);
   //_currentPosition = constrain(analogRead(getSignalPin()), _minPosition, _maxPosition);
-  //_currentPosition = analogRead(getSignalPin());
-  /*_currentPosition = _analog->getValue();
+  _currentPosition = analogRead(getSignalPin());
+  /*_currentPosition = _analog->getValue();*/
   if (_currentPosition > _maxPosition) _currentPosition = _maxPosition;
-  else if (_currentPosition < _minPosition) _currentPosition = _minPosition;*/
+  else if (_currentPosition < _minPosition) _currentPosition = _minPosition;
   return _currentPosition;
 }
 

@@ -1,6 +1,7 @@
 #include <MIDI.h>
 #include "InputDebounce.h"
 #include "Fader.h"
+#include <pt.h>
 
 #define BUTTON_DEBOUNCE_DELAY   20
 static const int changeBankPin = 14;
@@ -14,6 +15,8 @@ const uint16_t MAX_BANKS = 2;//(NUM_CHANNELS / (NUM_FADERS - 1));
 
 MIDI_CREATE_DEFAULT_INSTANCE();
 volatile uint8_t currentBank = 0;
+
+static struct pt pt1, pt2;
 
 // Fader(signalPin, enablePin, motorPin1, motorPin2, receiveTouchPin, sendTouchPin, master)
 /*Fader FADERS[NUM_FADERS] = { Fader(0,  10, 19, 18, 53, 52, true), // master fader
@@ -119,22 +122,38 @@ void calibrateFaders() {
   for (i=0; i<NUM_FADERS; i++) 
   {
     FADERS[i].calibrate();  
-    /*digitalWrite(ledBank1Pin, (i % 3 == 0) ? HIGH : LOW);
-    digitalWrite(ledBank2Pin, (i % 3 == 1) ? HIGH : LOW);
-    digitalWrite(ledBank3Pin, (i % 3 == 2) ? HIGH : LOW);*/
     bitWrite(PORTJ, 0, (i % 3) == 0);
     bitWrite(PORTH, 1, (i % 3) == 1);
     bitWrite(PORTH, 0, (i % 4) == 2);
   }
-  /*digitalWrite(ledBank1Pin, LOW);
-  digitalWrite(ledBank2Pin, LOW);
-  digitalWrite(ledBank3Pin, LOW);*/
   bitClear(PORTJ, 0);
   bitClear(PORTH, 1);
   bitClear(PORTH, 0);
 }
 
-long t;
+void moveFaders() {
+  int i;
+  for (i=0; i<NUM_FADERS; i++) {
+    /*FADERS[i].checkTouched();
+    if (FADERS[i].needMidiUpdate()) { // we need to update corresponding fader channel position on remote
+      uint16_t faderChannelIndex;
+      if (i == 0)
+        faderChannelIndex = 0;
+      else
+        faderChannelIndex = ((currentBank * 8) + i);
+      
+      if (faderChannelIndex < NUM_CHANNELS) {
+        uint16_t pos = FADERS[i].updateCurrentPosition();
+        FADERS[i].setTargetPosition(pos);
+        tracks[faderChannelIndex].position = pos; // save channel position        
+        MIDI.sendControlChange(tracks[faderChannelIndex].number, FADERS[i].faderPositionToMidiPosition(pos), tracks[faderChannelIndex].channel); 
+      }
+      FADERS[i].setMidiUpdate(false);
+    }*/
+    FADERS[i].updateCurrentPosition();
+    FADERS[i].move();
+  }
+}
 
 void manageFaders() {
   int i;
@@ -151,34 +170,12 @@ void manageFaders() {
         uint16_t pos = FADERS[i].updateCurrentPosition();
         FADERS[i].setTargetPosition(pos);
         tracks[faderChannelIndex].position = pos; // save channel position        
-        MIDI.sendControlChange(tracks[faderChannelIndex].number, FADERS[i].faderPositionToMidiPosition(pos), tracks[faderChannelIndex].channel); 
-        /*Serial.print("MIDI.sendControlChange(");
-        Serial.print(tracks[faderChannelIndex].number);
-        Serial.print(", ");
-        //Serial.print(FADERS[i].faderPositionToMidiPosition(pos));
-        //Serial.print(pos);
-        Serial.print(map(pos, FADERS[i].getMinPosition(), FADERS[i].getMaxPosition(), 0, 127));
-        Serial.print(", ");
-        Serial.print(tracks[faderChannelIndex].channel);
-        Serial.println(")");*/
-        //Serial.println("move fader ");
-        /*if (!i)
-          Serial.print("MASTER");
-         else
-          Serial.print(i);
-         Serial.print(" to position ");
-         Serial.println(FADERS[i].faderPositionToMidiPosition(pos));*/
+        //MIDI.sendControlChange(tracks[faderChannelIndex].number, FADERS[i].faderPositionToMidiPosition(pos), tracks[faderChannelIndex].channel); 
       }
       FADERS[i].setMidiUpdate(false);
-    }
-    //analogRead(A8);
-    //Serial.print("time for read = ");
+    } 
     FADERS[i].updateCurrentPosition();
-    FADERS[i].move();
-    /*Serial.print(analogRead(FADERS[i].getSignalPin()));
-    Serial.print("\t");*/
-    //if (i == NUM_FADERS-1)
-    //  Serial.println("");
+    FADERS[i].move();    
   }
 }
 
@@ -197,9 +194,6 @@ void changeBank() {
 }
 
 void setup() {
-  /*pinMode(ledBank1Pin, OUTPUT); //15
-  pinMode(ledBank2Pin, OUTPUT); //16
-  pinMode(ledBank3Pin, OUTPUT); //17*/
   bitSet(DDRJ, 0);
   bitSet(DDRH, 1);
   bitSet(DDRH, 0);
@@ -207,93 +201,62 @@ void setup() {
   changeBankButton.registerCallbacks(NULL, changeBank, NULL);
   changeBankButton.setup(changeBankPin, BUTTON_DEBOUNCE_DELAY, InputDebounce::PIM_INT_PULL_UP_RES);
   TCCR3B = TCCR3B & 0b11111000 | 0x01;
-  MIDI.setHandleControlChange(handleControlChange);
+  /*MIDI.setHandleControlChange(handleControlChange);
   MIDI.begin(MIDI_CHANNEL_OMNI);
-  MIDI.turnThruOff();
-  //Serial.begin(9600);
-  
+  MIDI.turnThruOff();*/
+  Serial.begin(9600);
   //calibrateFaders();
 }
 
-/*long counter = 0;
-long lastMicros = 0;
+static int protothread1(struct pt *pt, int interval) {
+  static unsigned long timestamp = 0;
+  PT_BEGIN(pt);
+  while(1) { // never stop 
+    /* each time the function is called the second boolean
+    *  argument "millis() - timestamp > interval" is re-evaluated
+    *  and if false the function exits after that. */
+    PT_WAIT_UNTIL(pt, millis() - timestamp > interval );
+    timestamp = millis(); // take a new timestamp
+    manageFaders();
+  }
+  PT_END(pt);
+}
+/* exactly the same as the protothread1 function */
+static int protothread2(struct pt *pt, int interval) {
+  static unsigned long timestamp = 0;
+  PT_BEGIN(pt);
+  while(1) {
+    PT_WAIT_UNTIL(pt, millis() - timestamp > interval );
+    timestamp = millis();
+    moveFaders();
+  }
+  PT_END(pt);
+}
+
 long currentMicros;
-double totalMicros = 0;*/
+long counter;
+long lastMicros;
 
 void loop() {  
-  // currentMicros = micros();
+  currentMicros = micros();
   changeBankButton.process(millis());
-  MIDI.read();
-  manageFaders();  
+  //MIDI.read();
+  //manageFaders();  
+//  moveFaders();
 
+  //protothread1(&pt1, 1); // schedule the two protothreads
+  //protothread2(&pt2, 1); // by calling them infinitely
+  
  bitWrite(PORTJ, 0, currentBank == 0);
  bitWrite(PORTH, 1, currentBank == 1);
  bitWrite(PORTH, 0, currentBank == 2);
- /* digitalWrite(ledBank1Pin, (currentBank == 0) ? HIGH : LOW);
-  digitalWrite(ledBank2Pin, (currentBank == 1) ? HIGH : LOW);
-  digitalWrite(ledBank3Pin, (currentBank == 2) ? HIGH : LOW);*/
 
-  /*int i;
-  for (i=0; i<NUM_FADERS; i++) 
-  {
-    Serial.print(i);
-    Serial.print(" : min = ");
-    Serial.print(FADERS[i].getMinPosition());
-    Serial.print(", max = ");
-    Serial.println(FADERS[i].getMaxPosition());
-  }*/
-  //Serial.println(currentBank);
-/*  digitalWrite(ledBank4Pin, (currentBank == 4) ? HIGH : LOW);
-  digitalWrite(ledBank5Pin, (currentBank == 5) ? HIGH : LOW);*/
-  
-  /*Serial.print("Channel 1  = ");
-  Serial.println(analogRead(A8));
-
-  Serial.print("Channel 2  = ");
-  Serial.println(analogRead(A7));
-
-  Serial.print("Channel 3  = ");
-  Serial.println(analogRead(A6));
-
-  Serial.print("Channel 4  = ");
-  Serial.println(analogRead(A5));
-
-  Serial.print("Channel 5  = ");
-  Serial.println(analogRead(A4));
-
-  Serial.print("Channel 6  = ");
-  Serial.println(analogRead(A3));
-
-  Serial.print("Channel 7  = ");
-  Serial.println(analogRead(A2));
-
-  Serial.print("Channel 8  = ");
-  Serial.println(analogRead(A1));
-
-  Serial.print("Master  = ");
-  Serial.println(analogRead(A0));*/
-
-  //Serial.println(FADERS[8]._cs->capacitiveSensor(30));
-
-  //Serial.println(FADERS[1].updateCurrentPosition());
-  //delay(1000);
-  //Serial.print("loop = ");
-    //Serial.println(FADERS[1]._cs->capacitiveSensor(5));
-/*  if ((currentMicros - lastMicros) >= 1000000)
-  {
-    long t = micros();
-    Serial.println(FADERS[1]._cs->capacitiveSensor(5));
-    //Serial.println(micros() - t);
-    //Serial.println(totalMicros / counter);
-    //Serial.println(counter);
-    counter = 0;
-    totalMicros = 0;
-    lastMicros = currentMicros;
-  } else {
-    totalMicros += (micros() - currentMicros);
+ if (currentMicros - lastMicros >= 1000000) {
+  Serial.println(counter);
+  counter = 0;
+  lastMicros = currentMicros;
+ } else {
     counter++;
-  }*/
-  //Serial.println(micros()-t);
-  
+ }
 }
 
