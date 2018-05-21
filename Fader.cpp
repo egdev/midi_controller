@@ -96,15 +96,12 @@ uint16_t Fader::getSignalPin() {
 }
 
 void Fader::checkTouched() {
-  _lastTouched = _touched;
-  //long cs = _cs->capacitiveSensor(30);
   long cs = _cs->capacitiveSensor(5);
   if (!_touched && cs >= 150)    
     _touched = true;
   else if (_touched && cs < 50)
     _touched = false;
 
-  //if (_lastTouched && !_touched) { // FALLING
   if (_touched) {
     _midiUpdate = true;
   }
@@ -129,8 +126,16 @@ uint16_t Fader::getCurrentPosition() {
   return _currentPosition;
 }
 
+uint16_t Fader::getTargetPosition() {
+  return _targetPosition;
+}
+
 void Fader::setTargetPosition(uint16_t position) {
   _targetPosition = position;
+}
+
+uint16_t Fader::getMotorSpeed() {
+  return _motorSpeed;
 }
 
 void Fader::setMotorSpeed(uint16_t speed) {
@@ -154,14 +159,14 @@ void Fader::move() {
         _motorSpeed = map(abs_delta, 100, _maxPosition, 200, 255);
     }      
     analogWrite(_enablePin, _motorSpeed);
-    if (delta > 0) {
+    if (delta > 0) { // move down
       *portOutputRegister(_motorPin1Port) &= ~(_motorPin1Bit);
       *portOutputRegister(_motorPin2Port) |= _motorPin2Bit;
-    } else {
+    } else {        // move up
       *portOutputRegister(_motorPin1Port) |= _motorPin1Bit;
       *portOutputRegister(_motorPin2Port) &= ~(_motorPin2Bit);
     }
-  } else {
+  } else { // stop
     _motorSpeed = 255;
     *portOutputRegister(_motorPin1Port) &= ~(_motorPin1Bit);
     *portOutputRegister(_motorPin2Port) &= ~(_motorPin2Bit);

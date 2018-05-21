@@ -26,11 +26,13 @@ class Fader {
     void setMidiUpdate(bool midiUpdate);
     void calibrate();
     uint16_t getCurrentPosition();
+    uint16_t getTargetPosition();
     void move();
     void setTargetPosition(uint16_t position);
     void setMotorSpeed(uint16_t speed);
     uint16_t getMinPosition();
     uint16_t getMaxPosition();
+    uint16_t getMotorSpeed();
     CapacitiveSensor* _cs; 
     
   private:
@@ -49,7 +51,6 @@ class Fader {
     bool _touched;
     bool _moving;                 // true if fader is moving
     bool _master;                 // true if master fader
-    bool _lastTouched;
     bool _midiUpdate;
     uint8_t _motorPin1Port;
     uint8_t _motorPin1Bit;

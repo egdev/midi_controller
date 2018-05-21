@@ -13,15 +13,15 @@ volatile uint8_t currentBank = 0;
 
 // Fader(signalPin, enablePin, motorPin1, motorPin2, receiveTouchPin, sendTouchPin, master)
 // GOOD ONES
-Fader FADERS[NUM_FADERS] = { Fader(0,  10, 19, 18, 53, 52, true), // master fader
-                             Fader(8,  2,  35, 34, 37, 36, false),                             
-                             Fader(7,  3,  33, 32, 39, 38, false),
+Fader FADERS[NUM_FADERS] = { Fader(0,  10,  19, 18, 53, 52, true), // master fader
+                             Fader(8,  2,   35, 34, 37, 36, false),                             
+                             Fader(7,  3,   33, 32, 39, 38, false),
                              Fader(6,  11,  31, 30, 41, 40, false),
-                             Fader(5,  5,  29, 28, 43, 42, false),
-                             Fader(4,  6,  27, 26, 45, 44, false),
-                             Fader(3,  7,  25, 24, 47, 46, false),
-                             Fader(2,  8,  23, 22, 49, 48, false),
-                             Fader(1,  9,  21, 20, 51, 50, false)
+                             Fader(5,  5,   29, 28, 43, 42, false),
+                             Fader(4,  6,   27, 26, 45, 44, false),
+                             Fader(3,  7,   25, 24, 47, 46, false),
+                             Fader(2,  8,   23, 22, 49, 48, false),
+                             Fader(1,  9,   21, 20, 51, 50, false)
                             };
 
 /*Fader FADERS[NUM_FADERS] = { Fader(0,  10, 19, 18, 53, 52, true,  PORTB, 4, PORTD, 2, PORTD, 3), // master fader
@@ -41,7 +41,7 @@ struct Track {
   midi::MidiControlChangeNumber number;  
 };
 
-Track tracks[NUM_CHANNELS] = { /*{ 1, 0, 31}, // master track
+Track tracks[NUM_CHANNELS] = { { 1, 0, 31}, // master track
                                { 1, 0, 0},
                                { 1, 0, 1},
                                { 1, 0, 2},
@@ -57,9 +57,9 @@ Track tracks[NUM_CHANNELS] = { /*{ 1, 0, 31}, // master track
                                { 1, 0, 12},
                                { 1, 0, 13},
                                { 1, 0, 14},
-                               { 1, 0, 15},
+                               { 1, 0, 15}/*,
                                { 1, 0, 16}*/
-                               /*,*/
+                               /*,
                                { 17,  0, 95},
                                { 1,   0, midi::MidiControlChangeNumber::ChannelVolume},
                                { 2,   0, midi::MidiControlChangeNumber::ChannelVolume},
@@ -76,7 +76,8 @@ Track tracks[NUM_CHANNELS] = { /*{ 1, 0, 31}, // master track
                                { 13,  0, midi::MidiControlChangeNumber::ChannelVolume},
                                { 14,  0, midi::MidiControlChangeNumber::ChannelVolume},
                                { 15,  0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 16,  0, midi::MidiControlChangeNumber::ChannelVolume} }; // save all channels positions
+                               { 16,  0, midi::MidiControlChangeNumber::ChannelVolume}*/
+                            }; // save all channels positions
 
 int16_t getChannelIndex(byte channel, byte number) {
   int16_t index = -1;
@@ -186,8 +187,8 @@ void loop() {
   MIDI.read();
   manageFaders();  
 
- bitWrite(PORTJ, 0, currentBank == 0);
- bitWrite(PORTH, 1, currentBank == 1);
- bitWrite(PORTH, 0, currentBank == 2);
+  bitWrite(PORTJ, 0, currentBank == 0); // pin 15
+  bitWrite(PORTH, 1, currentBank == 1); // pin 16
+  bitWrite(PORTH, 0, currentBank == 2); // pin 17
 }
 
