@@ -7,6 +7,11 @@
 #include <ResponsiveAnalogRead.h>
 #include "Header.h"
 
+typedef enum {
+  MF_Standby = 0,
+  MF_Up      = 1,
+  MF_Down    = 2
+} direction;
 
 class Fader {
   public:
@@ -22,7 +27,7 @@ class Fader {
     bool isMaster();
     void checkTouched();
     bool needMidiUpdate();
-    uint16_t updateCurrentPosition();
+    uint16_t readCurrentPosition();
     void setMidiUpdate(bool midiUpdate);
     void calibrate();
     uint16_t getCurrentPosition();
@@ -33,9 +38,22 @@ class Fader {
     uint16_t getMinPosition();
     uint16_t getMaxPosition();
     uint16_t getMotorSpeed();
+    void setDelta(uint16_t delta);
+    uint16_t getDelta();
+    void setPosition(uint16_t position);
+    uint16_t getPosition();
     CapacitiveSensor* _cs; 
+    direction _direction = MF_Standby;    
+    bool _idle;
+    uint8_t _pwm_ctr;
+    uint8_t _manual_move_ctr;
+    uint8_t _timeout_ctr;
+    uint8_t _repeat_ctr;
+    bool _suspended = false;
     
   private:
+    uint16_t _delta;
+    uint16_t _position = 0;
     uint16_t _currentPosition;
     uint16_t _targetPosition;
     uint16_t _minPosition = 0;

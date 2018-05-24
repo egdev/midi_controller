@@ -8,7 +8,13 @@ static InputDebounce changeBankButton;
 
 const uint16_t MAX_BANKS = 2;//(NUM_CHANNELS / (NUM_FADERS - 1));
 
-MIDI_CREATE_DEFAULT_INSTANCE();
+struct MySettings : public midi::DefaultSettings
+{
+  static const bool Use1ByteParsing = false;
+};
+ 
+//MIDI_CREATE_DEFAULT_INSTANCE();
+MIDI_CREATE_CUSTOM_INSTANCE(HardwareSerial, Serial, MIDI, MySettings)
 volatile uint8_t currentBank = 0;
 
 // Fader(signalPin, enablePin, motorPin1, motorPin2, receiveTouchPin, sendTouchPin, master)
@@ -93,7 +99,7 @@ void handleControlChange(byte channel, byte number, byte value) {
   int16_t channelIndex = getChannelIndex(channel, number);
   if (channelIndex == -1)
     return;
-    
+
   bool needToMoveFader = false;
   uint16_t faderIndex = 0;
   
@@ -107,7 +113,20 @@ void handleControlChange(byte channel, byte number, byte value) {
   }
   
   if ( needToMoveFader ) 
-    FADERS[faderIndex].setTargetPosition(FADERS[faderIndex].midiPositionToFaderPosition(value));
+  {
+    //if (FADERS[faderIndex]._manual_move_ctr)
+    //  return;
+
+    uint16_t newPosition = (uint16_t) FADERS[faderIndex].midiPositionToFaderPosition(value);
+    int16_t mf_delta = (FADERS[faderIndex].getPosition() - newPosition);
+    uint16_t abs_delta = abs(mf_delta);
+    //if( abs_delta < MF_DEADBAND )
+    //  return;
+
+    FADERS[faderIndex].setTargetPosition(newPosition);
+    FADERS[faderIndex]._repeat_ctr  = REPEAT_CTR_RELOAD;
+    FADERS[faderIndex]._timeout_ctr = TIMEOUT_CTR_RELOAD;    
+  }
 
   tracks[channelIndex].position = map(value, 0, 127, 0, 1023);
 }
@@ -116,7 +135,7 @@ void calibrateFaders() {
   int i;
   for (i=0; i<NUM_FADERS; i++) 
   {
-    FADERS[i].calibrate();
+    //FADERS[i].calibrate();
     bitWrite(PORTJ, 0, (i % 3) == 0);
     bitWrite(PORTH, 1, (i % 3) == 1);
     bitWrite(PORTH, 0, (i % 4) == 2);
@@ -130,8 +149,14 @@ void calibrateFaders() {
 void manageFaders() {
   int i;
   for (i=0; i<NUM_FADERS; i++) {
+    FADERS[i].readCurrentPosition();
+    FADERS[i].setDelta(abs(FADERS[i].getCurrentPosition() - FADERS[i].getPosition()));
+
+    if (FADERS[i].getDelta() > AIN_DEADBAND)
+      FADERS[i].setPosition(FADERS[i].getCurrentPosition());
+    
     FADERS[i].checkTouched();
-    if (FADERS[i].needMidiUpdate()) { // we need to update corresponding fader channel position on remote
+    if (FADERS[i].needMidiUpdate() && FADERS[i].getDelta() > AIN_DEADBAND) { // we need to update corresponding fader channel position on remote
       uint16_t faderChannelIndex;
       if (i == 0)
         faderChannelIndex = 0;
@@ -139,14 +164,13 @@ void manageFaders() {
         faderChannelIndex = ((currentBank * 8) + i);
       
       if (faderChannelIndex < NUM_CHANNELS) {
-        uint16_t pos = FADERS[i].updateCurrentPosition();
+        uint16_t pos = FADERS[i].readCurrentPosition();
         FADERS[i].setTargetPosition(pos);
         tracks[faderChannelIndex].position = pos; // save channel position        
         MIDI.sendControlChange(tracks[faderChannelIndex].number, FADERS[i].faderPositionToMidiPosition(pos), tracks[faderChannelIndex].channel); 
       }
       FADERS[i].setMidiUpdate(false);
     } 
-    FADERS[i].updateCurrentPosition();
     FADERS[i].move();    
   }
 }
@@ -177,12 +201,15 @@ void setup() {
   TCCR3B = (TCCR3B & 0b11111000) | 0x01;
   TCCR4B = (TCCR4B & 0b11111000) | 0x01;
   MIDI.setHandleControlChange(handleControlChange);
-  MIDI.begin(MIDI_CHANNEL_OMNI);
+  MIDI.begin(1);
   MIDI.turnThruOff();
+  //Serial.begin(9600);
   calibrateFaders();
 }
 
 void loop() {  
+  static long ms = 0;
+  static bool moved = 0;
   changeBankButton.process(millis());
   MIDI.read();
   manageFaders();  
@@ -190,5 +217,11 @@ void loop() {
   bitWrite(PORTJ, 0, currentBank == 0); // pin 15
   bitWrite(PORTH, 1, currentBank == 1); // pin 16
   bitWrite(PORTH, 0, currentBank == 2); // pin 17
+
+  /*if (!moved && millis() - ms >= 5000) {
+    handleControlChange(1, 0, 65);
+    ms = millis();
+    moved = true;
+  }*/
 }
 
