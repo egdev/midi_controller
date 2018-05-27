@@ -98,13 +98,9 @@ void Fader::checkTouched() {
   long cs = _cs->capacitiveSensor(5);
   
   if (!_touched && cs >= 150) { 
-    //Serial.println("TOUCHED AND MOTOR SUSPENDED");
     _touched = true;
     _suspended = true;
   } else if (_touched && cs < 50) {
-    //Serial.print("NOT TOUCHED");
-    //if (_suspended) Serial.println(" AND MOTOR ALWAYS SUSPENDED");
-    //else Serial.println(" AND MOTOR NO MORE SUSPENDED");
     _touched = false;
     waitBeforeMove = millis();
   }
@@ -115,8 +111,6 @@ void Fader::checkTouched() {
 
   if (_suspended && !_touched && (millis() - waitBeforeMove) > 500) { // not touched for 500ms
     _suspended = false;
-    //Serial.print(millis() - waitBeforeMove);
-    //Serial.println(" : MOTOR NO MORE SUSPENDED");
   }
 }
 
