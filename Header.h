@@ -1,7 +1,7 @@
 #pragma once
 
 #define NUM_FADERS    9
-#define NUM_CHANNELS  17
+#define NUM_CHANNELS  18
 
 #define REPEAT_CTR_RELOAD         31  // retries to reach target position
 #define TIMEOUT_CTR_RELOAD       255 // give up after how many mS

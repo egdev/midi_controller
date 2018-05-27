@@ -10,7 +10,7 @@ static const int led1Pin = 15;
 static const int led2Pin = 16;
 static const int led3Pin = 17;
 
-const uint16_t MAX_BANKS = 2;//(NUM_CHANNELS / (NUM_FADERS - 1));
+const uint16_t MAX_BANKS = ((NUM_CHANNELS-1)+(NUM_FADERS-2))/(NUM_FADERS-1);//(NUM_CHANNELS / (NUM_FADERS - 1));
 
 struct MySettings : public midi::DefaultSettings
 {
@@ -63,8 +63,8 @@ Track tracks[NUM_CHANNELS] = { { 1, 0, 31}, // master track
                                { 1, 0, 12},
                                { 1, 0, 13},
                                { 1, 0, 14},
-                               { 1, 0, 15}/*,
-                               { 1, 0, 16}*/
+                               { 1, 0, 15},
+                               { 1, 0, 16}
                             }; // save all channels positions
 
 int16_t getChannelIndex(byte channel, byte number) {
@@ -163,7 +163,10 @@ void changeBank() {
   int i;
   for (i=1; i<NUM_FADERS; i++) {
     uint16_t faderChannelIndex = ((currentBank * 8) + i);
-    FADERS[i].setTargetPosition(tracks[faderChannelIndex].position);
+    if (faderChannelIndex < NUM_CHANNELS)
+      FADERS[i].setTargetPosition(tracks[faderChannelIndex].position);
+    else
+      FADERS[i].setTargetPosition(0);
   }
 }
 
