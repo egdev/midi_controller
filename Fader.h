@@ -16,8 +16,8 @@ typedef enum {
 class Fader {
   public:
     Fader(uint16_t signalPin, uint8_t enablePin, uint8_t motorPin1, uint8_t motorPin2, uint8_t touchPin, uint8_t sendTouchPin, bool master = 0);
-    unsigned char faderPositionToMidiPosition(uint16_t faderPosition);
-    uint16_t midiPositionToFaderPosition(uint16_t midiPosition);
+    byte faderPositionToMidiPosition(int faderPosition);
+    int midiPositionToFaderPosition(byte midiPosition);
     uint16_t getSignalPin();
     uint8_t getEnablePin();
     uint8_t getMotorPin1();
@@ -27,38 +27,28 @@ class Fader {
     bool isMaster();
     void checkTouched();
     bool needMidiUpdate();
-    uint16_t readCurrentPosition();
     void setMidiUpdate(bool midiUpdate);
     void calibrate();
-    uint16_t getCurrentPosition();
-    uint16_t getTargetPosition();
+    int readCurrentPosition();
+    int getCurrentPosition();
+    int getTargetPosition();
+    void setTargetPosition(int position);
     void move();
-    void setTargetPosition(uint16_t position);
     void setMotorSpeed(uint16_t speed);
     uint16_t getMinPosition();
     uint16_t getMaxPosition();
     uint16_t getMotorSpeed();
-    void setDelta(uint16_t delta);
-    uint16_t getDelta();
-    void setPosition(uint16_t position);
-    uint16_t getPosition();
     CapacitiveSensor* _cs; 
-    direction _direction = MF_Standby;    
-    bool _idle;
-    uint8_t _pwm_ctr;
-    uint8_t _manual_move_ctr;
-    uint8_t _timeout_ctr;
-    uint8_t _repeat_ctr;
     bool _suspended = false;
+    volatile uint8_t *_motorPin1Port;
+    volatile uint8_t *_motorPin2Port;
     
   private:
-    uint16_t _delta;
-    uint16_t _position = 0;
-    uint16_t _currentPosition;
-    uint16_t _targetPosition;
-    uint16_t _minPosition = 0;
-    uint16_t _maxPosition = 1023;
-    uint8_t _deadBand = 15;
+    int _currentPosition  = 0;
+    int _targetPosition   = 0;
+    int _minPosition      = 0;
+    int _maxPosition      = 1023;
+    uint8_t _deadBand     = 15;
     uint8_t _signalPin;           // pin for wiper signal
     uint8_t _enablePin;           // pwm pin for motor
     uint8_t _motorPin1;           // pin IN1 for motor
@@ -70,9 +60,7 @@ class Fader {
     bool _moving;                 // true if fader is moving
     bool _master;                 // true if master fader
     bool _midiUpdate;
-    uint8_t _motorPin1Port;
     uint8_t _motorPin1Bit;
-    uint8_t _motorPin2Port;
     uint8_t _motorPin2Bit;
 };
 

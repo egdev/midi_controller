@@ -6,6 +6,10 @@
 static const int changeBankPin = 14;
 static InputDebounce changeBankButton;
 
+static const int led1Pin = 15;
+static const int led2Pin = 16;
+static const int led3Pin = 17;
+
 const uint16_t MAX_BANKS = 2;//(NUM_CHANNELS / (NUM_FADERS - 1));
 
 struct MySettings : public midi::DefaultSettings
@@ -13,8 +17,8 @@ struct MySettings : public midi::DefaultSettings
   static const bool Use1ByteParsing = false;
 };
  
-//MIDI_CREATE_DEFAULT_INSTANCE();
-MIDI_CREATE_CUSTOM_INSTANCE(HardwareSerial, Serial, MIDI, MySettings)
+MIDI_CREATE_CUSTOM_INSTANCE(HardwareSerial, Serial, MIDI, MySettings);
+
 volatile uint8_t currentBank = 0;
 
 // Fader(signalPin, enablePin, motorPin1, motorPin2, receiveTouchPin, sendTouchPin, master)
@@ -30,20 +34,16 @@ Fader FADERS[NUM_FADERS] = { Fader(0,  10,  19, 18, 53, 52, true), // master fad
                              Fader(1,  9,   21, 20, 51, 50, false)
                             };
 
-/*Fader FADERS[NUM_FADERS] = { Fader(0,  10, 19, 18, 53, 52, true,  PORTB, 4, PORTD, 2, PORTD, 3), // master fader
-                             Fader(8,  2,  35, 34, 37, 36, false, PORTE, 4, PORTC, 2, PORTC, 3),                             
-                             Fader(7,  3,  33, 32, 39, 38, false, PORTE, 5, PORTC, 4, PORTC, 5),
-                             Fader(6,  4,  31, 30, 41, 40, false, PORTG, 5, PORTC, 6, PORTC, 7),
-                             Fader(5,  5,  29, 28, 43, 42, false, PORTE, 3, PORTA, 7, PORTA, 6),
-                             Fader(4,  6,  27, 26, 45, 44, false, PORTH, 3, PORTA, 5, PORTA, 4),
-                             Fader(3,  7,  25, 24, 47, 46, false, PORTH, 4, PORTA, 3, PORTA, 2),
-                             Fader(2,  8,  23, 22, 49, 48, false, PORTH, 5, PORTA, 1, PORTA, 0),
-                             Fader(1,  9,  21, 20, 51, 50, false, PORTH, 6, PORTD, 0, PORTD, 1)
-                            };*/
+volatile uint8_t *_led1Port;
+volatile uint8_t *_led2Port;
+volatile uint8_t *_led3Port;
+uint8_t _led1Bit;
+uint8_t _led2Bit;
+uint8_t _led3Bit;
 
 struct Track {
   midi::Channel channel;
-  uint16_t position;  // 10-bit resolution 0-1023
+  int position;  // 10-bit resolution 0-1023
   midi::MidiControlChangeNumber number;  
 };
 
@@ -65,24 +65,6 @@ Track tracks[NUM_CHANNELS] = { { 1, 0, 31}, // master track
                                { 1, 0, 14},
                                { 1, 0, 15}/*,
                                { 1, 0, 16}*/
-                               /*,
-                               { 17,  0, 95},
-                               { 1,   0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 2,   0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 3,   0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 4,   0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 5,   0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 6,   0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 7,   0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 8,   0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 9,   0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 10,  0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 11,  0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 12,  0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 13,  0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 14,  0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 15,  0, midi::MidiControlChangeNumber::ChannelVolume},
-                               { 16,  0, midi::MidiControlChangeNumber::ChannelVolume}*/
                             }; // save all channels positions
 
 int16_t getChannelIndex(byte channel, byte number) {
@@ -114,18 +96,8 @@ void handleControlChange(byte channel, byte number, byte value) {
   
   if ( needToMoveFader ) 
   {
-    //if (FADERS[faderIndex]._manual_move_ctr)
-    //  return;
-
-    uint16_t newPosition = (uint16_t) FADERS[faderIndex].midiPositionToFaderPosition(value);
-    int16_t mf_delta = (FADERS[faderIndex].getPosition() - newPosition);
-    uint16_t abs_delta = abs(mf_delta);
-    //if( abs_delta < MF_DEADBAND )
-    //  return;
-
+    int newPosition = FADERS[faderIndex].midiPositionToFaderPosition(value);
     FADERS[faderIndex].setTargetPosition(newPosition);
-    FADERS[faderIndex]._repeat_ctr  = REPEAT_CTR_RELOAD;
-    FADERS[faderIndex]._timeout_ctr = TIMEOUT_CTR_RELOAD;    
   }
 
   tracks[channelIndex].position = map(value, 0, 127, 0, 1023);
@@ -135,28 +107,34 @@ void calibrateFaders() {
   int i;
   for (i=0; i<NUM_FADERS; i++) 
   {
-    //FADERS[i].calibrate();
-    bitWrite(PORTJ, 0, (i % 3) == 0);
-    bitWrite(PORTH, 1, (i % 3) == 1);
-    bitWrite(PORTH, 0, (i % 4) == 2);
-    //break;
+    FADERS[i].calibrate();
+    if ((i % 3) == 0)
+      *_led1Port |= _led1Bit;
+    else
+      *_led1Port &= ~(_led1Bit);
+  
+    if ((i % 3) == 1)
+      *_led2Port |= _led2Bit;
+    else
+      *_led2Port &= ~(_led2Bit);
+  
+    if ((i % 3) == 2)
+      *_led3Port |= _led3Bit;
+    else
+      *_led3Port &= ~(_led3Bit);
   }
-  bitClear(PORTJ, 0);
-  bitClear(PORTH, 1);
-  bitClear(PORTH, 0);
+  *_led1Port &= ~(_led1Bit);
+  *_led2Port &= ~(_led2Bit);
+  *_led3Port &= ~(_led3Bit);
 }
 
 void manageFaders() {
   int i;
   for (i=0; i<NUM_FADERS; i++) {
     FADERS[i].readCurrentPosition();
-    FADERS[i].setDelta(abs(FADERS[i].getCurrentPosition() - FADERS[i].getPosition()));
 
-    if (FADERS[i].getDelta() > AIN_DEADBAND)
-      FADERS[i].setPosition(FADERS[i].getCurrentPosition());
-    
     FADERS[i].checkTouched();
-    if (FADERS[i].needMidiUpdate() && FADERS[i].getDelta() > AIN_DEADBAND) { // we need to update corresponding fader channel position on remote
+    if (FADERS[i].needMidiUpdate()) { // we need to update corresponding fader channel position on remote
       uint16_t faderChannelIndex;
       if (i == 0)
         faderChannelIndex = 0;
@@ -164,7 +142,7 @@ void manageFaders() {
         faderChannelIndex = ((currentBank * 8) + i);
       
       if (faderChannelIndex < NUM_CHANNELS) {
-        uint16_t pos = FADERS[i].readCurrentPosition();
+        int pos = FADERS[i].readCurrentPosition();
         FADERS[i].setTargetPosition(pos);
         tracks[faderChannelIndex].position = pos; // save channel position        
         MIDI.sendControlChange(tracks[faderChannelIndex].number, FADERS[i].faderPositionToMidiPosition(pos), tracks[faderChannelIndex].channel); 
@@ -193,6 +171,14 @@ void setup() {
   bitSet(DDRJ, 0);
   bitSet(DDRH, 1);
   bitSet(DDRH, 0);
+
+  _led1Bit  = digitalPinToBitMask(led1Pin);
+  _led1Port = portOutputRegister(digitalPinToPort(led1Pin));
+  _led2Bit  = digitalPinToBitMask(led2Pin);
+  _led2Port = portOutputRegister(digitalPinToPort(led2Pin));
+  _led3Bit  = digitalPinToBitMask(led3Pin);
+  _led3Port = portOutputRegister(digitalPinToPort(led3Pin));
+
   
   changeBankButton.registerCallbacks(NULL, changeBank, NULL);
   changeBankButton.setup(changeBankPin, BUTTON_DEBOUNCE_DELAY, InputDebounce::PIM_INT_PULL_UP_RES);
@@ -208,20 +194,25 @@ void setup() {
 }
 
 void loop() {  
-  static long ms = 0;
-  static bool moved = 0;
   changeBankButton.process(millis());
   MIDI.read();
+  noInterrupts();
   manageFaders();  
+  interrupts();
 
-  bitWrite(PORTJ, 0, currentBank == 0); // pin 15
-  bitWrite(PORTH, 1, currentBank == 1); // pin 16
-  bitWrite(PORTH, 0, currentBank == 2); // pin 17
+  if (currentBank == 0)
+    *_led1Port |= _led1Bit;
+  else
+    *_led1Port &= ~(_led1Bit);
 
-  /*if (!moved && millis() - ms >= 5000) {
-    handleControlChange(1, 0, 65);
-    ms = millis();
-    moved = true;
-  }*/
+  if (currentBank == 1)
+    *_led2Port |= _led2Bit;
+  else
+    *_led2Port &= ~(_led2Bit);
+
+  if (currentBank == 2)
+    *_led3Port |= _led3Bit;
+  else
+    *_led3Port &= ~(_led3Bit);
 }
 
