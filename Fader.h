@@ -26,17 +26,17 @@ class Fader {
     bool isTouched();
     bool isMaster();
     void checkTouched();
-    bool needMidiUpdate();
-    void setMidiUpdate(bool midiUpdate);
     void calibrate();
     int readCurrentPosition();
     int getCurrentPosition();
     int getTargetPosition();
     void setTargetPosition(int position);
+    void setLastPosition(int position);
+    int getLastPosition();
     void move();
     void setMotorSpeed(uint16_t speed);
-    uint16_t getMinPosition();
-    uint16_t getMaxPosition();
+    int getMinPosition();
+    int getMaxPosition();
     uint16_t getMotorSpeed();
     CapacitiveSensor* _cs; 
     bool _suspended = false;
@@ -44,10 +44,11 @@ class Fader {
     volatile uint8_t *_motorPin2Port;
     
   private:
-    int _currentPosition  = 0;
-    int _targetPosition   = 0;
-    int _minPosition      = 0;
-    int _maxPosition      = 1023;
+    volatile int _lastPosition     = 0;
+    volatile int _currentPosition  = 0;
+    volatile int _targetPosition   = 0;
+    volatile int _minPosition      = 0;
+    volatile int _maxPosition      = 1023;
     uint8_t _deadBand     = 15;
     uint8_t _signalPin;           // pin for wiper signal
     uint8_t _enablePin;           // pwm pin for motor
@@ -59,7 +60,6 @@ class Fader {
     bool _touched;
     bool _moving;                 // true if fader is moving
     bool _master;                 // true if master fader
-    bool _midiUpdate;
     uint8_t _motorPin1Bit;
     uint8_t _motorPin2Bit;
 };

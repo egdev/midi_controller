@@ -17,7 +17,7 @@ struct MySettings : public midi::DefaultSettings
   static const bool Use1ByteParsing = false;
 };
  
-MIDI_CREATE_CUSTOM_INSTANCE(HardwareSerial, Serial, MIDI, MySettings);
+//MIDI_CREATE_CUSTOM_INSTANCE(HardwareSerial, Serial, MIDI, MySettings);
 
 volatile uint8_t currentBank = 0;
 
@@ -43,7 +43,7 @@ uint8_t _led3Bit;
 
 struct Track {
   midi::Channel channel;
-  int position;  // 10-bit resolution 0-1023
+  volatile int position;  // 10-bit resolution 0-1023
   midi::MidiControlChangeNumber number;  
 };
 
@@ -107,7 +107,8 @@ void calibrateFaders() {
   int i;
   for (i=0; i<NUM_FADERS; i++) 
   {
-    FADERS[i].calibrate();
+    //FADERS[i].calibrate();
+    FADERS[i].setLastPosition(0);
     if ((i % 3) == 0)
       *_led1Port |= _led1Bit;
     else
@@ -132,9 +133,12 @@ void manageFaders() {
   int i;
   for (i=0; i<NUM_FADERS; i++) {
     FADERS[i].readCurrentPosition();
-
+    int delta = abs(FADERS[i].getCurrentPosition() - FADERS[i].getLastPosition());
+    if (delta > AIN_DEADBAND) 
+      FADERS[i].setLastPosition(FADERS[i].getCurrentPosition());    
+   
     FADERS[i].checkTouched();
-    if (FADERS[i].needMidiUpdate()) { // we need to update corresponding fader channel position on remote
+    if (FADERS[i].isTouched() && delta > AIN_DEADBAND) { // we need to update corresponding fader channel position on remote 
       uint16_t faderChannelIndex;
       if (i == 0)
         faderChannelIndex = 0;
@@ -142,14 +146,13 @@ void manageFaders() {
         faderChannelIndex = ((currentBank * 8) + i);
       
       if (faderChannelIndex < NUM_CHANNELS) {
-        int pos = FADERS[i].readCurrentPosition();
+        int pos = FADERS[i].getCurrentPosition();
         FADERS[i].setTargetPosition(pos);
         tracks[faderChannelIndex].position = pos; // save channel position        
         MIDI.sendControlChange(tracks[faderChannelIndex].number, FADERS[i].faderPositionToMidiPosition(pos), tracks[faderChannelIndex].channel); 
       }
-      FADERS[i].setMidiUpdate(false);
     } 
-    FADERS[i].move();    
+    FADERS[i].move();
   }
 }
 
@@ -163,10 +166,11 @@ void changeBank() {
   int i;
   for (i=1; i<NUM_FADERS; i++) {
     uint16_t faderChannelIndex = ((currentBank * 8) + i);
-    if (faderChannelIndex < NUM_CHANNELS)
+    if (faderChannelIndex < NUM_CHANNELS) {
       FADERS[i].setTargetPosition(tracks[faderChannelIndex].position);
-    else
+    } else {
       FADERS[i].setTargetPosition(0);
+    }
   }
 }
 
@@ -192,7 +196,6 @@ void setup() {
   MIDI.setHandleControlChange(handleControlChange);
   MIDI.begin(1);
   MIDI.turnThruOff();
-  //Serial.begin(9600);
   calibrateFaders();
 }
 

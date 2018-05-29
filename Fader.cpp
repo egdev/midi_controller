@@ -24,11 +24,19 @@ Fader::Fader(uint16_t signalPin, uint8_t enablePin, uint8_t motorPin1, uint8_t m
    _motorPin2Port = portOutputRegister(digitalPinToPort(_motorPin2));
 }
 
-uint16_t Fader::getMinPosition() {
+int Fader::getLastPosition() {
+  return _lastPosition;
+}
+
+void Fader::setLastPosition(int position) {
+  _lastPosition = position;
+}
+
+int Fader::getMinPosition() {
   return _minPosition;
 }
 
-uint16_t Fader::getMaxPosition() {
+int Fader::getMaxPosition() {
   return _maxPosition;
 }
 
@@ -105,17 +113,9 @@ void Fader::checkTouched() {
     waitBeforeMove = millis();
   }
 
-  if (_touched) {
-    _midiUpdate = true;
-  }
-
   if (_suspended && !_touched && (millis() - waitBeforeMove) > 500) { // not touched for 500ms
     _suspended = false;
   }
-}
-
-bool Fader::needMidiUpdate() {
-  return _midiUpdate;  
 }
 
 int Fader::readCurrentPosition() {
@@ -123,10 +123,6 @@ int Fader::readCurrentPosition() {
   if (_currentPosition > _maxPosition) _currentPosition = _maxPosition;
   else if (_currentPosition < _minPosition) _currentPosition = _minPosition;
   return _currentPosition;
-}
-
-void Fader::setMidiUpdate(bool midiUpdate) {
-  _midiUpdate = midiUpdate;
 }
 
 int Fader::getCurrentPosition() {
