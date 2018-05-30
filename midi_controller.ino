@@ -108,7 +108,7 @@ void calibrateFaders() {
   for (i=0; i<NUM_FADERS; i++) 
   {
     //FADERS[i].calibrate();
-    FADERS[i].setLastPosition(0);
+    FADERS[i].setLastPosition(FADERS[i].getMinPosition());
     if ((i % 3) == 0)
       *_led1Port |= _led1Bit;
     else

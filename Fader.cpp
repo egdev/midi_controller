@@ -148,7 +148,7 @@ void Fader::setMotorSpeed(uint16_t speed) {
 void Fader::move() {
   int delta = _currentPosition - _targetPosition; // delta between read value and wanted value
   int abs_delta = abs(delta);
-  if (!_suspended && abs_delta > MF_DEADBAND) {  // delta greater than deadband we can move and fader not touched
+  if (!_suspended && abs_delta > MF_DEADBAND) {  // delta greater than deadband we can move if not suspended (not touched)
     if (!_moving) {                   // fader was not moving, start at max speed
       if (abs_delta < 50)
         _motorSpeed = 200;
