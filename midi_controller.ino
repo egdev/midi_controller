@@ -17,7 +17,7 @@ struct MySettings : public midi::DefaultSettings
   static const bool Use1ByteParsing = false;
 };
  
-//MIDI_CREATE_CUSTOM_INSTANCE(HardwareSerial, Serial, MIDI, MySettings);
+MIDI_CREATE_CUSTOM_INSTANCE(HardwareSerial, Serial, MIDI, MySettings);
 
 volatile uint8_t currentBank = 0;
 
